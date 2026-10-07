@@ -106,7 +106,6 @@ class _ImageWrapperState extends State<ImageWrapper> {
 
   // retrieve image from the provider
   void _resolveImage() {
-    _loading = true;
     final ImageStream newStream = widget.imageProvider.resolve(
       const ImageConfiguration(),
     );
@@ -162,9 +161,18 @@ class _ImageWrapperState extends State<ImageWrapper> {
 
   void _updateSourceStream(ImageStream newStream) {
     if (_imageStream?.key == newStream.key) {
+      // Same stream, so nothing is being fetched and no frame will arrive to
+      // clear a loading flag set here. Re-resolving happens on every
+      // didChangeDependencies (a MediaQuery change among them, which is what
+      // hiding or showing the reader's toolbars causes), and flipping the flag
+      // in that case strands the page on its spinner.
       return;
     }
     _imageStream?.removeListener(_imageStreamListener!);
+    // Only now, when a different image is actually on its way, fall back to the
+    // loading state - and do it before addListener, so a frame that is already
+    // in the ImageCache and delivered synchronously can clear it again at once.
+    _loading = true;
     _imageStream = newStream;
     _imageStream!.addListener(_getOrCreateListener());
   }
